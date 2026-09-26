@@ -25,6 +25,62 @@ ActiveConnection::ActiveConnection(QObject *parent)
 {
     statusChanged(NetworkManager::status());
     connect(NetworkManager::notifier(), &NetworkManager::Notifier::statusChanged, this, &ActiveConnection::statusChanged);
+
+    updatePrimaryConnection();
+    connect(NetworkManager::notifier(), &NetworkManager::Notifier::primaryConnectionChanged,
+            this, &ActiveConnection::updatePrimaryConnection);
+    connect(NetworkManager::notifier(), &NetworkManager::Notifier::activeConnectionsChanged,
+            this, &ActiveConnection::updatePrimaryConnection);
+    connect(NetworkManager::notifier(), &NetworkManager::Notifier::statusChanged,
+            this, &ActiveConnection::updatePrimaryConnection);
+}
+
+void ActiveConnection::updatePrimaryConnection()
+{
+    QString type = QStringLiteral("none");
+    QString name;
+    const NetworkManager::ActiveConnection::Ptr primary = NetworkManager::primaryConnection();
+    if (primary && primary->isValid() && NetworkManager::status() == NetworkManager::Connected) {
+        name = primary->id();
+        switch (primary->type()) {
+        case NetworkManager::ConnectionSettings::Wireless:
+            type = QStringLiteral("wireless");
+            break;
+        case NetworkManager::ConnectionSettings::Wired:
+        case NetworkManager::ConnectionSettings::Bond:
+        case NetworkManager::ConnectionSettings::Bridge:
+        case NetworkManager::ConnectionSettings::Vlan:
+            type = QStringLiteral("wired");
+            break;
+        default:
+            type = QStringLiteral("wired");   // other links (e.g. tethering) show as wired
+            break;
+        }
+    }
+
+    bool vpn = false;
+    for (const NetworkManager::ActiveConnection::Ptr &ac : NetworkManager::activeConnections()) {
+        if (ac->vpn() || ac->type() == NetworkManager::ConnectionSettings::WireGuard) {
+            vpn = true;
+            break;
+        }
+    }
+
+    if (type != m_connectionType || name != m_connectionName || vpn != m_vpnActive) {
+        m_connectionType = type;
+        m_connectionName = name;
+        m_vpnActive = vpn;
+        emit connectionChanged();
+    }
+}
+
+QString ActiveConnection::networkIcon() const
+{
+    if (m_connectionType == QLatin1String("wireless"))
+        return m_wirelessIcon.isEmpty() ? QStringLiteral("network-wireless-connected-100") : m_wirelessIcon;
+    if (m_connectionType == QLatin1String("wired"))
+        return QStringLiteral("network-wired-activated");
+    return QStringLiteral("network-wired");   // disconnected
 }
 
 void ActiveConnection::statusChanged(NetworkManager::Status status)
@@ -88,4 +144,5 @@ void ActiveConnection::updateWirelessIconForSignalStrength(int strength)
 
     m_wirelessIcon = QString("network-wireless-connected-%1").arg(iconStrength);
     emit wirelessIconChanged();
+    emit connectionChanged();
 }
