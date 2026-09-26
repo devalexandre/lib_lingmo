@@ -430,7 +430,13 @@ bool OutputModel::setRotation(int outputIndex, KScreen::Output::Rotation rotatio
     // Only this monitor turns (the old `xrandr --screen N -o` turned the whole X
     // screen, or nothing at all with several monitors)
     const QRect before(output.ptr->pos(), output.ptr->geometry().size());
+    const bool wasHorizontal = output.ptr->isHorizontal();
     output.ptr->setRotation(rotation);
+    // The XRandR backend hands out an explicit logical size, which rotation doesn't
+    // turn by itself: swap it when the monitor goes from lying to standing or back
+    if (output.ptr->isHorizontal() != wasHorizontal && output.ptr->explicitLogicalSize().isValid()) {
+        output.ptr->setExplicitLogicalSize(output.ptr->explicitLogicalSize().transposed());
+    }
     const QSize after = output.ptr->geometry().size();
 
     // Keep the monitors to its right and below touching it
