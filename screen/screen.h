@@ -23,6 +23,9 @@ public:
     Q_INVOKABLE void save();
 
 private:
+    void writeLayoutScript(const KScreen::ConfigPtr &config);
+
+private:
     void configReady(KScreen::ConfigOperation *op);
 
 Q_SIGNALS:

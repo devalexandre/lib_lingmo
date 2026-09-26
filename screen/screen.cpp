@@ -1,4 +1,8 @@
 #include "screen.h"
+
+#include <QDir>
+#include <QFile>
+#include <QStandardPaths>
 #include "outputmodel.h"
 
 #include <kscreen/setconfigoperation.h>
@@ -48,6 +52,48 @@ void Screen::save()
 
     auto *op = new KScreen::SetConfigOperation(config);
     op->exec();
+
+    writeLayoutScript(config);
+}
+
+// The same xrandr line arandr writes: lingmo-session runs it at login, before the
+// window manager and the panels start
+void Screen::writeLayoutScript(const KScreen::ConfigPtr &config)
+{
+    QStringList args;
+    for (const KScreen::OutputPtr &output : config->outputs()) {
+        if (!output->isConnected())
+            continue;
+        args << "--output" << output->name();
+        const KScreen::ModePtr mode = output->currentMode();
+        if (!output->isEnabled() || !mode) {
+            args << "--off";
+            continue;
+        }
+        const char *rotation = "normal";
+        switch (output->rotation()) {
+        case KScreen::Output::Left: rotation = "left"; break;
+        case KScreen::Output::Inverted: rotation = "inverted"; break;
+        case KScreen::Output::Right: rotation = "right"; break;
+        default: break;
+        }
+        args << "--mode" << QStringLiteral("%1x%2").arg(mode->size().width()).arg(mode->size().height())
+             << "--rate" << QString::number(mode->refreshRate(), 'f', 2)
+             << "--pos" << QStringLiteral("%1x%2").arg(output->pos().x()).arg(output->pos().y())
+             << "--rotate" << rotation;
+        if (output->priority() == 1)
+            args << "--primary";
+    }
+
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + "/lingmoos";
+    QDir().mkpath(dir);
+    QFile file(dir + "/screenlayout.sh");
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return;
+    file.write("#!/bin/sh\n# Written by Settings > Display; run by lingmo-session at login\n");
+    file.write("xrandr " + args.join(' ').toUtf8() + "\n");
+    file.close();
+    file.setPermissions(file.permissions() | QFileDevice::ExeOwner);
 }
 
 OutputModel *Screen::outputModel() const
