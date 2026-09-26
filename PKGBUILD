@@ -1,24 +1,26 @@
-pkgname="liblingmo"
-pkgver="2.0.0"
-pkgrel="1"
-pkgdesc="LingmoOS & LingmoDE Library"
+# Maintainer: Lingmo OS Team <team@lingmo.org>
+# Contributor: devalexandre <alexandre@dev2learn.com>
+pkgname=liblingmo
+pkgver=2.0.0
+pkgrel=1
+pkgdesc="System libraries (network, audio, screen, bluetooth) of the Lingmo desktop"
 arch=("x86_64")
-depends=('kscreen' 'modemmanager-qt5' 'networkmanager-qt5' 'qt5-quickcontrols2' 'accountsservice' 'bluez' 'bluez-qt5')
-url="https://github.com/LingmoOS/liblingmo"
-makedepends=('extra-cmake-modules' 'ninja' 'qt5-tools' 'git')
+url="https://github.com/LingmoOS/lib_lingmo"
+license=("GPL")
+depends=("qt6-base" "qt6-declarative" "qt6-sensors" "networkmanager-qt" "modemmanager-qt" "bluez-qt" "libkscreen" "kio" "libcanberra" "libpulse" "sound-theme-freedesktop")
+makedepends=("cmake" "ninja" "extra-cmake-modules" "qt6-tools" "git")
 provides=("$pkgname")
 conflicts=("$pkgname")
 source=("git+$url.git")
-license=("GPL2.0")
 sha512sums=("SKIP")
 
 build() {
-	cd $pkgname
-	cmake -GNinja -DCMAKE_INSTALL_PREFIX=/usr .
-	ninja
+    cmake -S lib_lingmo -B build -G Ninja \
+        -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_BUILD_TYPE=None -DQT_NO_PRIVATE_MODULE_WARNING=ON
+    cmake --build build
 }
 
 package() {
-	cd $pkgname
-	DESTDIR="$pkgdir" ninja install
+    DESTDIR="$pkgdir" cmake --install build
 }
