@@ -415,7 +415,7 @@ bool OutputModel::setAutoRotateOnlyInTabletMode(int outputIndex, bool value)
 
 bool OutputModel::setRotation(int outputIndex, KScreen::Output::Rotation rotation)
 {
-    const Output &output = m_outputs[outputIndex];
+    Output &output = m_outputs[outputIndex];
 
     if (rotation != KScreen::Output::None
             && rotation != KScreen::Output::Left
@@ -426,26 +426,41 @@ bool OutputModel::setRotation(int outputIndex, KScreen::Output::Rotation rotatio
     if (output.ptr->rotation() == rotation) {
         return false;
     }
-    if(rotation == KScreen::Output::None)
-    {
-        QProcess::startDetached("xrandr --screen "+ QString::number(outputIndex) + " -o normal");
-    }else if(rotation == KScreen::Output::Left)
-    {
-        QProcess::startDetached("xrandr --screen "+ QString::number(outputIndex) + " -o left");
-    }else if(rotation == KScreen::Output::Inverted)
-    {
-        QProcess::startDetached("xrandr --screen "+ QString::number(outputIndex) + " -o inverted");
-    }else if(rotation == KScreen::Output::Right)
-    {
-        QProcess::startDetached("xrandr --screen "+ QString::number(outputIndex) + " -o right");
+
+    // Only this monitor turns (the old `xrandr --screen N -o` turned the whole X
+    // screen, or nothing at all with several monitors)
+    const QRect before(output.ptr->pos(), output.ptr->geometry().size());
+    output.ptr->setRotation(rotation);
+    const QSize after = output.ptr->geometry().size();
+
+    // Keep the monitors to its right and below touching it
+    const int dx = after.width() - before.width();
+    const int dy = after.height() - before.height();
+    for (int i = 0; i < m_outputs.size(); i++) {
+        Output &other = m_outputs[i];
+        if (i == outputIndex || !positionable(other)) {
+            continue;
+        }
+        QPoint shift;
+        if (other.ptr->pos().x() >= before.x() + before.width()) {
+            shift.setX(dx);
+        }
+        if (other.ptr->pos().y() >= before.y() + before.height()) {
+            shift.setY(dy);
+        }
+        if (shift.isNull()) {
+            continue;
+        }
+        other.pos += shift;
+        other.ptr->setPos(other.ptr->pos() + shift);
+        QModelIndex otherIndex = createIndex(i, 0);
+        Q_EMIT dataChanged(otherIndex, otherIndex, {PositionRole, NormalizedPositionRole});
     }
-    //output.ptr->setRotation(rotation);
 
-    //QModelIndex index = createIndex(outputIndex, 0);
-    //Q_EMIT dataChanged(index, index, {RotationRole, SizeRole});
-    //Q_EMIT sizeChanged();
+    QModelIndex index = createIndex(outputIndex, 0);
+    Q_EMIT dataChanged(index, index, {RotationRole, SizeRole});
+    Q_EMIT sizeChanged();
     return true;
-
 }
 
 int OutputModel::resolutionIndex(const KScreen::OutputPtr &output) const
