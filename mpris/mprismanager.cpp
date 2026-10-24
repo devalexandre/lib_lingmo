@@ -415,7 +415,7 @@ void MprisManager::onServiceAppeared(const QString &service)
 
         connect(controller.data(), SIGNAL(playbackStatusChanged()), m_playbackStatusMapper, SLOT(map()));
         m_playbackStatusMapper->setMapping(controller.data(), controller->service());
-        connect(m_playbackStatusMapper, SIGNAL(mapped(QString)), this, SLOT(onAvailableControllerPlaybackStatusChanged(QString)));
+        connect(m_playbackStatusMapper, &QSignalMapper::mappedString, this, &MprisManager::onAvailableControllerPlaybackStatusChanged);
     }
 
     if (m_currentController.isNull()) {
