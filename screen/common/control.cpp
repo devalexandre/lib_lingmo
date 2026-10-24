@@ -18,15 +18,31 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "globals.h"
 
 #include <KDirWatch>
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QJsonDocument>
 #include <QStringBuilder>
 
+#include <algorithm>
+
 #include <kscreen/config.h>
 #include <kscreen/output.h>
 
 QString Control::s_dirName = QStringLiteral("control/");
+
+// KF6 libkscreen removed Config::connectedOutputsHash(); compute it locally with the same algorithm.
+static QString connectedOutputsHash(const KScreen::ConfigPtr &config)
+{
+    QStringList hashedOutputs;
+    const auto outputs = config->connectedOutputs();
+    for (const auto &output : outputs) {
+        hashedOutputs << output->hashMd5();
+    }
+    std::sort(hashedOutputs.begin(), hashedOutputs.end());
+    const auto hash = QCryptographicHash::hash(hashedOutputs.join(QString()).toLatin1(), QCryptographicHash::Md5);
+    return QString::fromLatin1(hash.toHex());
+}
 
 Control::Control(QObject *parent)
     : QObject(parent)
@@ -174,7 +190,7 @@ QString ControlConfig::filePath() const
     if (!m_config) {
         return QString();
     }
-    return filePathFromHash(m_config->connectedOutputsHash());
+    return filePathFromHash(connectedOutputsHash(m_config));
 }
 
 bool ControlConfig::writeFile()

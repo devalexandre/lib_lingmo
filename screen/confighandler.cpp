@@ -114,16 +114,14 @@ void ConfigHandler::updateInitialData()
 
 void ConfigHandler::checkNeedsSave()
 {
-    if (m_config->supportedFeatures() & KScreen::Config::Feature::PrimaryDisplay) {
-        if (m_config->primaryOutput() && m_initialConfig->primaryOutput()) {
-            if (m_config->primaryOutput()->hashMd5() != m_initialConfig->primaryOutput()->hashMd5()) {
-                Q_EMIT needsSaveChecked(true);
-                return;
-            }
-        } else if ((bool)m_config->primaryOutput() != (bool)m_initialConfig->primaryOutput()) {
+    if (m_config->primaryOutput() && m_initialConfig->primaryOutput()) {
+        if (m_config->primaryOutput()->hashMd5() != m_initialConfig->primaryOutput()->hashMd5()) {
             Q_EMIT needsSaveChecked(true);
             return;
         }
+    } else if ((bool)m_config->primaryOutput() != (bool)m_initialConfig->primaryOutput()) {
+        Q_EMIT needsSaveChecked(true);
+        return;
     }
 
     if (m_initialRetention != getRetention()) {
